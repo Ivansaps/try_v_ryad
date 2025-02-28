@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Три в ряд - Telegram Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <div class="score-container">
+                <div class="current-score">
+                    Счёт: <span id="score">0</span>
+                </div>
+                <div class="best-score">
+                    Рекорд: <span id="best-score">0</span>
+                </div>
+            </div>
+            <div class="moves-container">
+                Ходов: <span id="moves">20</span>
+            </div>
+        </div>
+
+        <div id="game-board"></div>
+
+        <div id="message-container" class="hidden">
+            <div class="message-box">
+                <h2 id="message-title">Игра окончена!</h2>
+                <p id="message-text">Ваш счёт: <span id="final-score">0</span></p>
+                <button id="restart-button">Играть снова</button>
+            </div>
+        </div>
+
+        <div class="leaderboard-button" id="show-leaderboard">
+            Таблица рекордов
+        </div>
+    </div>
+
+    <div id="leaderboard-container" class="hidden">
+        <div class="leaderboard-box">
+            <h2>Топ игроков</h2>
+            <div class="close-button" id="close-leaderboard">✕</div>
+            <table id="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th>Место</th>
+                        <th>Игрок</th>
+                        <th>Рекорд</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-body">
+                    <!-- Здесь будут строки таблицы рекордов -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
