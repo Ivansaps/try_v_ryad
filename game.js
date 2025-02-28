@@ -499,3 +499,11 @@ tg.MainButton.onClick(() => {
         restartGame();
     }
 });
+
+// Добавьте этот код в конец файла game.js
+document.addEventListener('click', function(event) {
+    const leaderboardContainer = document.getElementById('leaderboard-container');
+    if (!leaderboardContainer.classList.contains('hidden')) {
+        leaderboardContainer.classList.add('hidden');
+    }
+});
