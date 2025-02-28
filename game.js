@@ -7,8 +7,8 @@ tg.ready();
 const userId = tg.initDataUnsafe?.user?.id || 'guest';
 const userName = tg.initDataUnsafe?.user?.first_name || 'Гость';
 
-// URL вашего бэкенда (замените на свой)
-const API_URL = 'https://your-backend-url.com/api';
+// URL вашего бэкенда (оставим пустым до настройки бэкенда)
+const API_URL = '';
 
 // Конфигурация игры
 const BOARD_SIZE = 6;
@@ -42,8 +42,8 @@ let isProcessing = false;
 
 // Инициализация игры
 async function initGame() {
-    // Загружаем рекорд пользователя
-    await loadUserData();
+    // Загружаем рекорд пользователя из локального хранилища
+    bestScore = localStorage.getItem('bestScore') || 0;
     
     // Создаем доску
     createBoard();
@@ -61,20 +61,31 @@ async function initGame() {
     
     // Обновляем отображение
     updateDisplay();
+    
+    // Убеждаемся, что таблица рекордов изначально скрыта
+    if (leaderboardContainer) {
+        leaderboardContainer.classList.add('hidden');
+    }
 }
 
 // Загрузка данных пользователя
 async function loadUserData() {
     try {
-        const response = await fetch(`${API_URL}/user/${userId}`);
-        if (response.ok) {
-            const data = await response.json();
-            bestScore = data.bestScore || 0;
+        if (API_URL) {
+            const response = await fetch(`${API_URL}/user/${userId}`);
+            if (response.ok) {
+                const data = await response.json();
+                bestScore = data.bestScore || 0;
+            }
         }
     } catch (error) {
         console.error('Error loading user data:', error);
-        // В случае ошибки, используем локальное хранилище
-        bestScore = localStorage.getItem('bestScore') || 0;
+    }
+    
+    // В любом случае используем локальное хранилище как резервный вариант
+    const localBestScore = localStorage.getItem('bestScore');
+    if (localBestScore && parseInt(localBestScore) > bestScore) {
+        bestScore = parseInt(localBestScore);
     }
 }
 
@@ -309,9 +320,11 @@ async function processMatches() {
         // Анимация и удаление совпавших гемов
         matches.forEach(match => {
             const gem = document.querySelector(`.gem[data-row="${match.row}"][data-col="${match.col}"]`);
-            gem.classList.add('matched');
-            // Маркируем удаленные гемы как null
-            board[match.row][match.col] = null;
+            if (gem) {
+                gem.classList.add('matched');
+                // Маркируем удаленные гемы как null
+                board[match.row][match.col] = null;
+            }
         });
         
         // Ждем завершения анимации
@@ -330,6 +343,7 @@ async function processMatches() {
     // Обновляем рекорд
     if (score > bestScore) {
         bestScore = score;
+        localStorage.setItem('bestScore', bestScore);
     }
 }
 
@@ -352,11 +366,13 @@ async function cascadeGems() {
                 
                 // Анимируем падение
                 const gem = document.querySelector(`.gem[data-row="${row}"][data-col="${col}"]`);
-                gem.classList.add('falling');
-                gem.style.transform = `translateY(${(emptyRow - row) * (100 / BOARD_SIZE)}%)`;
-                
-                // Обновляем атрибуты и классы
-                gem.dataset.row = emptyRow;
+                if (gem) {
+                    gem.classList.add('falling');
+                    gem.style.transform = `translateY(${(emptyRow - row) * (100 / BOARD_SIZE)}%)`;
+                    
+                    // Обновляем атрибуты
+                    gem.dataset.row = emptyRow;
+                }
                 
                 // Ищем следующую пустую ячейку
                 emptyRow--;
@@ -410,33 +426,68 @@ async function saveScore() {
         bestScore = score;
         localStorage.setItem('bestScore', bestScore);
         
-        try {
-            await fetch(`${API_URL}/scores`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    userId,
-                    userName,
-                    score
-                })
-            });
-        } catch (error) {
-            console.error('Error saving score:', error);
+        // Если API_URL настроен, отправляем данные на сервер
+        if (API_URL) {
+            try {
+                await fetch(`${API_URL}/scores`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId,
+                        userName,
+                        score
+                    })
+                });
+            } catch (error) {
+                console.error('Error saving score:', error);
+            }
         }
     }
 }
 
 // Загрузка таблицы рекордов
 async function loadLeaderboard() {
+    // Сначала очищаем текущие данные
+    leaderboardBody.innerHTML = '';
+    
+    // Если API_URL не настроен, показываем демо-данные
+    if (!API_URL) {
+        // Демо-данные для таблицы лидеров
+        const demoLeaderboard = [
+            { userName: "Чемпион", bestScore: 2500 },
+            { userName: "Игрок1", bestScore: 1800 },
+            { userName: "Игрок2", bestScore: 1500 },
+            { userName: "Вы", bestScore: bestScore }
+        ].sort((a, b) => b.bestScore - a.bestScore);
+        
+        demoLeaderboard.forEach((entry, index) => {
+            const row = document.createElement('tr');
+            
+            const rankCell = document.createElement('td');
+            rankCell.textContent = index + 1;
+            
+            const nameCell = document.createElement('td');
+            nameCell.textContent = entry.userName;
+            
+            const scoreCell = document.createElement('td');
+            scoreCell.textContent = entry.bestScore;
+            
+            row.appendChild(rankCell);
+            row.appendChild(nameCell);
+            row.appendChild(scoreCell);
+            
+            leaderboardBody.appendChild(row);
+        });
+        return;
+    }
+    
+    // Если API_URL настроен, загружаем данные с сервера
     try {
         const response = await fetch(`${API_URL}/leaderboard`);
         if (response.ok) {
             const leaderboard = await response.json();
-            
-            // Очищаем таблицу
-            leaderboardBody.innerHTML = '';
             
             // Заполняем данными
             leaderboard.forEach((entry, index) => {
@@ -449,7 +500,7 @@ async function loadLeaderboard() {
                 nameCell.textContent = entry.userName;
                 
                 const scoreCell = document.createElement('td');
-                scoreCell.textContent = entry.score;
+                scoreCell.textContent = entry.bestScore;
                 
                 row.appendChild(rankCell);
                 row.appendChild(nameCell);
@@ -477,16 +528,31 @@ function restartGame() {
     messageContainer.classList.add('hidden');
 }
 
+// Открытие таблицы рекордов
+function openLeaderboard() {
+    loadLeaderboard();
+    leaderboardContainer.classList.remove('hidden');
+}
+
+// Закрытие таблицы рекордов
+function closeLeaderboard() {
+    leaderboardContainer.classList.add('hidden');
+}
+
 // Обработчики событий
 restartButton.addEventListener('click', restartGame);
 
-showLeaderboardButton.addEventListener('click', () => {
-    loadLeaderboard();
-    leaderboardContainer.classList.remove('hidden');
-});
+// Обработчик для кнопки "Таблица рекордов"
+showLeaderboardButton.addEventListener('click', openLeaderboard);
 
-closeLeaderboardButton.addEventListener('click', () => {
-    leaderboardContainer.classList.add('hidden');
+// Обработчик для кнопки закрытия таблицы рекордов
+closeLeaderboardButton.addEventListener('click', closeLeaderboard);
+
+// Дополнительный обработчик для закрытия таблицы рекордов кликом по крестику
+document.addEventListener('click', function(event) {
+    if (event.target === closeLeaderboardButton) {
+        closeLeaderboard();
+    }
 });
 
 // Инициализация игры при загрузке страницы
@@ -497,13 +563,5 @@ tg.MainButton.setText('Играть снова');
 tg.MainButton.onClick(() => {
     if (moves <= 0) {
         restartGame();
-    }
-});
-
-// Добавьте этот код в конец файла game.js
-document.addEventListener('click', function(event) {
-    const leaderboardContainer = document.getElementById('leaderboard-container');
-    if (!leaderboardContainer.classList.contains('hidden')) {
-        leaderboardContainer.classList.add('hidden');
     }
 });
